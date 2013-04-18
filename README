@@ -12,7 +12,8 @@ It stores meta-data in a .subdirs file in the git root.
 Commands must be run from the git root. Git-subdir does not make commits, but
 it sets up the flat files ready for the commit.
 
-Easy tutorial:
+1-minute tutorial:
+
 
 Create a new sub repository to a specific commit:
 
@@ -24,23 +25,30 @@ Or maybe just get whatever latest master HEAD is:
 $> git-subdir clone third-party/OCMock git@github.com:erikdoe/ocmock.git
 
 
+
 It is easy for maintainers to update to the latest version:
 
+$> cd ~/myproject
 $> git-subdir pull third-party/OCMock master
+
 But you can also checkout specific versions if you need to:
 
 $> git-subdir pull third-party/OCMock a32cf38e5e
 
 
 
+
 Delete subdirs easily:
 
+$> cd ~/myproject
 $> git-subdir rm third-party/OCMock
+
 
 
 Finally, local changes you make can be pushed over to another local repository 
 you have on your system so that it's easy to synchronize changes back upstream:
 
-$> git-subdir push third-party/OCMock ../OCMock
+$> cd ~/myproject
+$> git-subdir push third-party/OCMock ~/OCMock
 
 
