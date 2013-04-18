@@ -12,11 +12,12 @@ import subprocess
 
 def command_stdout(command):
     """Accepts a list of strings.  Executes the script in a shell and returns stdout."""
-    return subprocess.Popen(command, stdout=subprocess.PIPE).communicate()[0]
+    return subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()[0]
 
 def command_return_code(command):
     """Accepts a list of strings.  Executes the script in a shell and returns the return code."""
-    return subprocess.call(command)
+    p = subprocess.Popen(command)#, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    return p.wait()
 
 @contextlib.contextmanager
 def chdir(directory):
@@ -53,6 +54,8 @@ def read_subdir_section(f):
         Returns a 3-tuple of (path, url, base_commit) that is submodules.
     """
     section_header = f.readline().rstrip(' \r\n')
+    if section_header == '':
+        return None
     path = f.readline().rstrip(' \r\n').split(' = ', 1)[1]
     url = f.readline().rstrip(' \r\n').split(' = ', 1)[1]
     base_commit = f.readline().rstrip(' \r\n').split(' = ', 1)[1]
@@ -68,7 +71,11 @@ def read_subdirs_file():
     subdirs = []
     if os.path.exists(subdirs_filename()):
         with open(subdirs_filename(), 'r') as f:
-            subdirs.append(read_subdir_section(f))
+            while True:
+                section = read_subdir_section(f)
+                if section is None:
+                    break
+                subdirs.append(section)
     return subdirs
 
 def read_subdir_info(path):
@@ -107,6 +114,13 @@ def update_config(path, url, base_commit):
         subdirs.append((path, url, base_commit))
     write_subdirs_file(subdirs)
 
+def remove_subdir_from_config(path):
+    """Accepts a path string. Removes that subdir from config file."""
+    assert not os.path.exists(os.path.join(git_root(), path)), 'Subdir should have been deleted from filesystem'
+    assert read_subdir_info(path) is not None, 'Subdir is not in the config file, nothing to remove'
+    subdirs = [s for s in read_subdirs_file() if s[0] != path]
+    write_subdirs_file(subdirs)
+
 ########################
 # Testing tools
 ########################
@@ -116,7 +130,7 @@ def assert_subdir_exists(subdir):
     assert isinstance(subdir, tuple)
     assert len(subdir) == 3
     p = os.path.join(git_root(), subdir[0])
-    assert os.path.exists(p), 'Subdir does not exist: %s' % subdir
+    assert os.path.exists(p), 'Subdir does not exist in filesystem: %s' % subdir[0]
 
 def assert_subdirs_exist():
     """Ensures that every subdir in subdirs directory exists in the git repo (perhaps uncommitted yet)."""
@@ -125,10 +139,10 @@ def assert_subdirs_exist():
         assert_subdir_exists(subdir)
 
 ########################
-# Git subtree methods
+# Git subdir methods
 ########################
 
-def git_subtree_clone(path, url, base_commit=None):
+def git_subdir_clone(path, url, base_commit=None):
     """Accepts path string for where to place the code and url string for git cloning.
         an url, and a base_commit to pull from.  Defaults to master HEAD."""
     # assert we are at git root
@@ -149,7 +163,7 @@ def git_subtree_clone(path, url, base_commit=None):
             base_commit = 'master'
 
         if command_return_code(['git', 'checkout', base_commit]) != 0:
-            raise Exception('Failed to checkout subdir: %s' % (path, url, base_commit))
+            raise Exception('Failed to checkout subdir: %s - %s - %s' % (path, url, base_commit))
 
         base_commit = command_stdout(['git', 'rev-parse', 'HEAD'])
 
@@ -168,7 +182,7 @@ def git_subtree_clone(path, url, base_commit=None):
 
     return 0
 
-def git_subtree_pull(path, url, base_commit=None):
+def git_subdir_pull(path, base_commit=None):
     """Accepts a path string for where to pull the code in,
         an url, and a base_commit to pull from.  Defaults to master HEAD.
     """
@@ -176,24 +190,29 @@ def git_subtree_pull(path, url, base_commit=None):
     assert_is_clean(path)
 
     # Ensure subdir already is cloned in already
-    assert_subdir_exists((path, url, base_commit))
+    assert_subdir_exists((path, '', base_commit))
 
-    # Ensure that the url isn't changing.
+    # Ensure that config is right
     subdir = read_subdir_info(path)
     assert subdir is not None, "Path is not a git subdir: %s" % path
     assert isinstance(subdir, tuple)
     assert len(subdir) == 3
-    assert subdir[1] == url, "URL is different for this subdir (original:%s, new:%s)" % (subdir[1], url)
+
+    # set up args
+    assert path == subdir[0]
+    url = subdir[1]
+    if base_commit is None:
+        base_commit = 'master'
 
     # Now clear it out
-    shutil.rmtree(os.path.join(git_root(), path))
+    git_subdir_rm(path)
 
     # Verified that url is the same, deleted all the files, so now replace it all
-    git_subtree_clone(path, url, base_commit)
+    git_subdir_clone(path, url, base_commit)
 
     return 0
 
-def git_subtree_push(path, local_path):
+def git_subdir_push(path, local_path):
     """Accepts a path relative to git repo where the subdir is, 
         and a local path string on system to push changes to.
        Note that the local path must be a clean git checkout that 
@@ -220,25 +239,55 @@ def git_subtree_push(path, local_path):
 
     return 0
 
+
+def git_subdir_rm(path):
+    """Accepts a path string for where to delete a subdir
+        and deletes it.
+    """
+    # Check that the path is clean
+    assert_is_clean(path)
+
+    # Ensure subdir already is cloned in already
+    assert_subdir_exists((path, '', ''))
+
+    # Ensure that the url isn't changing.
+    subdir = read_subdir_info(path)
+    assert subdir is not None, "Path is not a git subdir: %s" % path
+    assert isinstance(subdir, tuple)
+    assert len(subdir) == 3
+
+    # Now clear it out
+    shutil.rmtree(os.path.join(git_root(), path))
+    remove_subdir_from_config(path)
+
+    return 0
+
 ########################
 # main script
 ########################
-
-if len(sys.argv) < 2:
-    print 'Usage: git-subtree clone <path> <url> [base_commit]'
-    print 'Usage: git-subtree pull <path> <url> [base_commit]'
-    print 'Usage: git-subtree push <path> <localpath>'
-    print 'Example: git-subtree clone VendorLib/OCMock ssh://github.com/OCMock a32cf38' 
-    print 'Example: git-subtree clone VendorLib/OCMock ssh://github.com/OCMock master' 
-    print 'Example: git-subtree pull VendorLib/OCMock ssh://github.com/OCMock a32cf38e5e'
-    print 'Example: git-subtree pull VendorLib/OCMock ssh://github.com/OCMock master' 
-    print 'Example: git-subtree push VendorLib/OCMock ../OCMock'
+if len(sys.argv) < 3:
+    print 'Usage: git-subdir clone <path> <url> [base_commit]'
+    print 'Usage: git-subdir pull <path> [base_commit]'
+    print 'Usage: git-subdir push <path> <localpath>'
+    print 'Usage: git-subdir rm <path>'
+    print 'Example: git-subdir clone VendorLib/OCMock ssh://github.com/OCMock a32cf38' 
+    print 'Example: git-subdir clone VendorLib/OCMock ssh://github.com/OCMock master' 
+    print 'Example: git-subdir pull VendorLib/OCMock a32cf38e5e'
+    print 'Example: git-subdir pull VendorLib/OCMock master' 
+    print 'Example: git-subdir push VendorLib/OCMock ../OCMock'
+    print 'Example: git-subdir rm VendorLib/OCMock'
     sys.exit(0)
 
-if sys.argv[1] == 'clone':
-    sys.exit(git_subtree_clone(sys.argv[2], sys.argv[3], None if len(sys.argv) <= 4 else sys.argv[4]))
-elif sys.argv[1] == 'pull':
-    sys.exit(git_subtree_pull(sys.argv[2], sys.argv[3], None if len(sys.argv) <= 4 else sys.argv[4]))
-elif sys.argv[1] == 'push':
-    sys.exit(git_subtree_push(sys.argv[2], sys.argv[3]))
+try:
+    if sys.argv[1] == 'clone':
+        sys.exit(git_subdir_clone(sys.argv[2], sys.argv[3], None if len(sys.argv) <= 4 else sys.argv[4]))
+    elif sys.argv[1] == 'pull':
+        sys.exit(git_subdir_pull(sys.argv[2], None if len(sys.argv) <= 3 else sys.argv[3]))
+    elif sys.argv[1] == 'push':
+        sys.exit(git_subdir_push(sys.argv[2], sys.argv[3]))
+    elif sys.argv[1] == 'rm':
+        sys.exit(git_subdir_rm(sys.argv[2]))
+except AssertionError,e:
+    print e
+    sys.exit(1)
 

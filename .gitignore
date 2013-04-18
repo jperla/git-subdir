@@ -1,5 +1,5 @@
-
 *.pyc
 *.swp
 
-test_dir/*
+# for testing
+sampledir/*
