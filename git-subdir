@@ -1,5 +1,4 @@
-#!/usr/bin/env python
-from __future__ import with_statement
+#!/usr/bin/env python2.7
 import os
 import sys
 import shutil
@@ -9,16 +8,6 @@ import subprocess
 ########################
 # Utilities
 ########################
-
-def command_stdout(command):
-    """Accepts a list of strings.  Executes the script in a shell and returns stdout."""
-    return subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()[0]
-
-def command_return_code(command):
-    """Accepts a list of strings.  Executes the script in a shell and returns the return code."""
-    p = subprocess.Popen(command)#, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    return p.wait()
-
 @contextlib.contextmanager
 def chdir(directory):
     """Accepts directory string.
@@ -33,12 +22,12 @@ def chdir(directory):
 def git_root():
     """Finds the absolute path of the root of the 
         git repository and returns it."""
-    return command_stdout(['git', 'rev-parse', '--show-toplevel']).rstrip(' \r\n')
+    return subprocess.check_output(['git', 'rev-parse', '--show-toplevel']).rstrip(' \r\n')
 
 def assert_is_clean(directory):
     """Ensures directory has no untracked or modified files or throws error."""
-    o = command_stdout(['git', 'status', '-s', directory]).strip(' \r\n')
-    return o == '', 'Directory is not clean: %s' % directory
+    o = subprocess.check_output(['git', 'status', '-s', directory]).strip(' \r\n')
+    assert o == '', 'Directory is not clean: %s' % directory
 
 ########################
 # .subdirs config
@@ -154,7 +143,7 @@ def git_subdir_clone(path, url, base_commit=None):
     # assert subdir not already in config
     assert read_subdir_info(path) == None, 'Subdir is already in config file'
 
-    if command_return_code(['git', 'clone', url, path]) != 0:
+    if subprocess.check_call(['git', 'clone', url, path]) != 0:
         raise Exception('Failed to clone url to path %s: %s' % (path, url))
 
     with chdir(path):
@@ -162,13 +151,13 @@ def git_subdir_clone(path, url, base_commit=None):
         if base_commit == None:
             base_commit = 'master'
 
-        if command_return_code(['git', 'checkout', base_commit]) != 0:
+        if subprocess.check_call(['git', 'checkout', base_commit]) != 0:
             raise Exception('Failed to checkout subdir: %s - %s - %s' % (path, url, base_commit))
 
-        base_commit = command_stdout(['git', 'rev-parse', 'HEAD'])
+        base_commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'])
 
         # update submodules in the freshly cloned area
-        if command_return_code(['git', 'submodule', 'update', '--init', '--recursive']) != 0:
+        if subprocess.check_call(['git', 'submodule', 'update', '--init', '--recursive']) != 0:
             raise Exception('Failed to update submodules recursively in %s' % path)
 
     # clean out .git folders since we don't want submodules anywhere
@@ -231,11 +220,11 @@ def git_subdir_push(path, local_path):
     assert_is_clean(local_path)
 
     with chdir(local_path):
-        if command_return_code(['git', 'checkout', base_commit]) != 0:
+        if subprocess.check_call(['git', 'checkout', base_commit]) != 0:
             raise Exception('Could not checkout commit %s in %s' % (base_commit, local_path))
 
     #TODO: jperla: must delete things that weren't there
-    command_return_code(['cp', '-a', path, local_path])
+    subprocess.check_call(['cp', '-a', path, local_path])
 
     return 0
 
