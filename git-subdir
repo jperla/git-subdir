@@ -143,7 +143,7 @@ def git_subdir_clone(path, url, base_commit=None):
     # assert subdir not already in config
     assert read_subdir_info(path) == None, 'Subdir is already in config file'
 
-    if subprocess.check_call(['git', 'clone', url, path]) != 0:
+    if subprocess.call(['git', 'clone', url, path]) != 0:
         raise Exception('Failed to clone url to path %s: %s' % (path, url))
 
     with chdir(path):
@@ -151,13 +151,13 @@ def git_subdir_clone(path, url, base_commit=None):
         if base_commit == None:
             base_commit = 'master'
 
-        if subprocess.check_call(['git', 'checkout', base_commit]) != 0:
+        if subprocess.call(['git', 'checkout', base_commit]) != 0:
             raise Exception('Failed to checkout subdir: %s - %s - %s' % (path, url, base_commit))
 
         base_commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'])
 
         # update submodules in the freshly cloned area
-        if subprocess.check_call(['git', 'submodule', 'update', '--init', '--recursive']) != 0:
+        if subprocess.call(['git', 'submodule', 'update', '--init', '--recursive']) != 0:
             raise Exception('Failed to update submodules recursively in %s' % path)
 
     # clean out .git folders since we don't want submodules anywhere
@@ -165,6 +165,9 @@ def git_subdir_clone(path, url, base_commit=None):
         for d in dirs:
             if d == '.git':
                 shutil.rmtree(os.path.join(root, d))
+
+    # add it
+    subprocess.call(['git', 'add', path]) # returns exit code 128 if nothing
 
     # finally, register it
     update_config(path, url, base_commit)
@@ -220,11 +223,11 @@ def git_subdir_push(path, local_path):
     assert_is_clean(local_path)
 
     with chdir(local_path):
-        if subprocess.check_call(['git', 'checkout', base_commit]) != 0:
+        if subprocess.call(['git', 'checkout', base_commit]) != 0:
             raise Exception('Could not checkout commit %s in %s' % (base_commit, local_path))
 
     #TODO: jperla: must delete things that weren't there
-    subprocess.check_call(['cp', '-a', path, local_path])
+    subprocess.call(['cp', '-a', path, local_path])
 
     return 0
 
