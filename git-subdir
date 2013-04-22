@@ -170,7 +170,7 @@ def git_subdir_clone(path, url, base_commit=None):
                 os.remove(os.path.join(root, f))
 
     # add it
-    subprocess.call(['git', 'add', path]) # returns exit code 128 if nothing
+    subprocess.call(['git', 'add', '-f', path]) # returns exit code 128 if nothing
 
     # finally, register it
     update_config(path, url, base_commit)
