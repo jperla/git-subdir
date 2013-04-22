@@ -52,3 +52,5 @@ $> cd ~/myproject
 $> git-subdir push third-party/OCMock ~/OCMock
 
 
+# TODO:
+# write more tests where we have submodules within submodules (spdlay)
