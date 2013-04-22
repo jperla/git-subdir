@@ -165,6 +165,9 @@ def git_subdir_clone(path, url, base_commit=None):
         for d in dirs:
             if d == '.git':
                 shutil.rmtree(os.path.join(root, d))
+        for f in files:
+            if f == '.git':
+                os.remove(os.path.join(root, f))
 
     # add it
     subprocess.call(['git', 'add', path]) # returns exit code 128 if nothing
