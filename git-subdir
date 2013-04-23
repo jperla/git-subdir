@@ -135,7 +135,7 @@ def git_subdir_clone(path, url, base_commit=None):
     """Accepts path string for where to place the code and url string for git cloning.
         an url, and a base_commit to pull from.  Defaults to master HEAD."""
     # assert we are at git root
-    assert os.path.abspath(git_root()) == os.path.abspath(os.getcwd())
+    assert os.path.abspath(git_root()) == os.path.abspath(os.getcwd()), 'git-subdir must be run at main git root'
 
     # assert subdir does not already exist
     assert not os.path.exists(path), 'Subdir path already cloned into repo: %s' % path
