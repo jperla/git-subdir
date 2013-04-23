@@ -8,7 +8,7 @@ getting out of sync or in a bad state as they often do with submodules.
 Finally, it is transparent to users of the repo, and is very easy for sub 
 repository maintainers to maintain.
 
-It stores meta-data in a .subdirs file in the git root.
+It stores meta-data in a .gitsubdirs file in the git root.
 Commands must be run from the git root. Git-subdir does not make commits, but
 it sets up the flat files ready for the commit.
 

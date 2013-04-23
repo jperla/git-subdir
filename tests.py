@@ -35,8 +35,11 @@ def call_git_subdir(args):
 def cleanup():
     if os.path.exists(test_dirname):
         shutil.rmtree(test_dirname)
-    if os.path.exists('.subdirs'):
-        os.remove('.subdirs')
+    if os.path.exists('.gitsubdirs'):
+        os.remove('.gitsubdirs')
+
+def reset_staging_area():
+    subprocess.call(['git', 'rm', '-r', '--cached', test_dirname])
 
 def setupcleanup(f):
     @contextlib.contextmanager
@@ -83,12 +86,16 @@ def test_clone_master_explicit():
     assert 'already cloned' in o
     check_files_exist(new=True)
 
+    reset_staging_area()
+
 @setupcleanup
 def test_clone_master_implicit_and_rm():
     path = os.path.join(test_dirname, repo_name)
     r, o, e = call_git_subdir(['clone', path, repo_url, 'master'])
     assert r == 0
     check_files_exist(new=True)
+
+    reset_staging_area()
 
     r, o, e = call_git_subdir(['rm', path])
     assert not os.path.exists(path)
@@ -106,6 +113,8 @@ def test_clone_hash():
     assert 'already cloned' in o
     check_files_exist(new=False)
 
+    reset_staging_area()
+
 @setupcleanup
 def test_pull_explicit():
     path = os.path.join(test_dirname, repo_name)
@@ -114,9 +123,13 @@ def test_pull_explicit():
     assert r == 0
     check_files_exist(new=False)
 
+    reset_staging_area()
+
     r, o, e = call_git_subdir(['pull', path, 'master'])
     assert r == 0
     check_files_exist(new=True)
+
+    reset_staging_area()
 
 @setupcleanup
 def test_pull_implicit():
@@ -126,6 +139,10 @@ def test_pull_implicit():
     assert r == 0
     check_files_exist(new=False)
 
+    reset_staging_area()
+
     r, o, e = call_git_subdir(['pull', path])
     assert r == 0
     check_files_exist(new=True)
+
+    reset_staging_area()

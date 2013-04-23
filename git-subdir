@@ -30,13 +30,13 @@ def assert_is_clean(directory):
     assert o == '', 'Directory is not clean: %s' % directory
 
 ########################
-# .subdirs config
+# .gitsubdirs config
 ########################
 
 def subdirs_filename():
     """Finds the root of the git repository
         and returns the filename of subdirs config file."""
-    return os.path.join(git_root(), '.subdirs')
+    return os.path.join(git_root(), '.gitsubdirs')
 
 def read_subdir_section(f):
     """Accepts file pointer.
