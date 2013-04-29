@@ -39,7 +39,7 @@ def cleanup():
         os.remove('.gitsubdirs')
 
 def reset_staging_area():
-    subprocess.call(['git', 'rm', '-r', '--cached', test_dirname])
+    subprocess.Popen(['git', 'rm', '-r', '--cached', test_dirname], stdout=subprocess.PIPE).wait()
 
 def setupcleanup(f):
     @contextlib.contextmanager
