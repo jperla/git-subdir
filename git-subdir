@@ -47,7 +47,7 @@ def git_config_read(path, key):
         Reads and returns this stringin the subdirs configuration file.
     """
     fullkey = 'subdir.%s.%s' % (path, key)
-    subprocess.check_call(['git', 'config', '-f', subdirs_filename(), fullkey])
+    return subprocess.check_output(['git', 'config', '-f', subdirs_filename(), fullkey]).rstrip('\r\n')
 
 def git_config_write(path, key, value):
     """Accepts the subdir path and the key to change (one of path, url, or basecommit),
@@ -63,7 +63,7 @@ def read_subdir_info(path):
         Returns None if no matching path found.
     """
     try:
-        path = git_config_read(path, 'path')
+        assert path == git_config_read(path, 'path')
         url = git_config_read(path, 'url')
         base_commit = git_config_read(path, 'basecommit')
         return (path, url, base_commit)
