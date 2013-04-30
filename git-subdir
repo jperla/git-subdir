@@ -125,7 +125,7 @@ def git_subdir_clone(path, url, base_commit=None):
         if subprocess.call(['git', 'checkout', base_commit]) != 0:
             raise Exception('Failed to checkout subdir: %s - %s - %s' % (path, url, base_commit))
 
-        base_commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'])
+        base_commit = subprocess.check_output(['git', 'rev-parse', 'HEAD']).strip('\r\n')
 
         # update submodules in the freshly cloned area
         if subprocess.call(['git', 'submodule', 'update', '--init', '--recursive']) != 0:
