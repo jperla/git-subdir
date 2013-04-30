@@ -38,56 +38,37 @@ def subdirs_filename():
         and returns the filename of subdirs config file."""
     return os.path.join(git_root(), '.gitsubdirs')
 
-def read_subdir_section(f):
-    """Accepts file pointer.
-        Returns a 3-tuple of (path, url, base_commit) that is submodules.
-    """
-    section_header = f.readline().rstrip(' \r\n')
-    if section_header == '':
-        return None
-    path = f.readline().rstrip(' \r\n').split(' = ', 1)[1]
-    url = f.readline().rstrip(' \r\n').split(' = ', 1)[1]
-    base_commit = f.readline().rstrip(' \r\n').split(' = ', 1)[1]
-    assert section_header == '[subdir "%s"]' % path, 'Section header in invalid format: %s' % section_header
-    for letter in base_commit:
-        assert letter in set('abcdef1234567890'), 'Commit hash invalid'
-    return (path, url, base_commit)
+def is_valid_key(k):
+    """Accepts string. Returns whether it is one of the valid keys for this config file."""
+    return k in ['path', 'url', 'basecommit'] 
 
-def read_subdirs_file():
-    """Finds the root of the git repository
-        and reads the configuration.
-       Returns a list of 3-tuples (paths, url, base_commit)."""
-    subdirs = []
-    if os.path.exists(subdirs_filename()):
-        with open(subdirs_filename(), 'r') as f:
-            while True:
-                section = read_subdir_section(f)
-                if section is None:
-                    break
-                subdirs.append(section)
-    return subdirs
+def git_config_read(path, key):
+    """Accepts the subdir path and the value to read (one of path, url, or basecommit).
+        Reads and returns this stringin the subdirs configuration file.
+    """
+    fullkey = 'subdir.%s.%s' % (path, key)
+    subprocess.check_call(['git', 'config', '-f', subdirs_filename(), fullkey])
+
+def git_config_write(path, key, value):
+    """Accepts the subdir path and the key to change (one of path, url, or basecommit),
+        and the value to change it to..
+        Sets this in the subdirs configuration file.
+    """
+    fullkey = 'subdir.%s.%s' % (path, key)
+    subprocess.check_call(['git', 'config', '-f', subdirs_filename(), fullkey, value])
 
 def read_subdir_info(path):
     """Accepts path string, returns info in subdirs config file
         3-tuple of (path, url, base_commit).
         Returns None if no matching path found.
     """
-    subdirs = read_subdirs_file()
-    for subdir in subdirs:
-        if subdir[0] == path:
-            return subdir
-    else:
+    try:
+        path = git_config_read(path, 'path')
+        url = git_config_read(path, 'url')
+        base_commit = git_config_read(path, 'basecommit')
+        return (path, url, base_commit)
+    except:
         return None
-
-def write_subdirs_file(subdirs):
-    """Accepts a list of (path, url, base_commit).
-        Saves it to subdirs config file"""
-    with open(subdirs_filename(), 'w') as f:
-        for path, url, base_commit in subdirs:
-            f.write('[subdir "%s"]\n' % path)
-            f.write('\tpath = %s\n' % path)
-            f.write('\turl = %s\n' % url)
-            f.write('\tbasecommit = %s\n' % base_commit)
 
 def update_config(path, url, base_commit):
     """Accepts a subdir path in git repo,
@@ -95,20 +76,16 @@ def update_config(path, url, base_commit):
        Adds or modifies the subdir => url path to
          the subdir config file."""
     assert_subdir_exists((path, url, base_commit))
-    subdirs = read_subdirs_file()
-    for i,subdir in enumerate(subdirs):
-        if subdir[0] == path:
-            subdirs[i] = (path, url, base_commit)
-    else:
-        subdirs.append((path, url, base_commit))
-    write_subdirs_file(subdirs)
+    git_config_write(path, 'path', path)
+    git_config_write(path, 'url', url)
+    git_config_write(path, 'basecommit', base_commit)
 
 def remove_subdir_from_config(path):
     """Accepts a path string. Removes that subdir from config file."""
     assert not os.path.exists(os.path.join(git_root(), path)), 'Subdir should have been deleted from filesystem'
     assert read_subdir_info(path) is not None, 'Subdir is not in the config file, nothing to remove'
-    subdirs = [s for s in read_subdirs_file() if s[0] != path]
-    write_subdirs_file(subdirs)
+    subprocess.check_call(['git', 'config', '-f', subdirs_filename(), '--remove-section', 'subdir.%s' % path])
+    assert read_subdir_info(path) is None, 'Failed to remove subdir from config file'
 
 ########################
 # Testing tools
@@ -120,12 +97,6 @@ def assert_subdir_exists(subdir):
     assert len(subdir) == 3
     p = os.path.join(git_root(), subdir[0])
     assert os.path.exists(p), 'Subdir does not exist in filesystem: %s' % subdir[0]
-
-def assert_subdirs_exist():
-    """Ensures that every subdir in subdirs directory exists in the git repo (perhaps uncommitted yet)."""
-    subdirs = read_subdirs_file()
-    for subdir in subdirs:
-        assert_subdir_exists(subdir)
 
 ########################
 # Git subdir methods
